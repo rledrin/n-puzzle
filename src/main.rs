@@ -2,9 +2,11 @@ use std::env;
 
 use algo::Algo;
 use getopts::Options;
+use heuristic::Heuristic;
 use solver::Puzzle;
 
 mod algo;
+mod heuristic;
 mod node;
 mod solver;
 
@@ -22,10 +24,14 @@ fn main() {
 	let mut silent = false;
 	let mut random = false;
 	let mut algo = Box::new(algo::Astar::solve) as Algo;
+	let mut heuristic = Box::new(heuristic::Manhattan::heuristic) as Heuristic;
 
 	let mut opts = Options::new();
 	opts.optopt("f", "file", "Path to a puzzle file", "<PATH>");
 	opts.optflag("r", "random", "Generate a random puzzle");
+	opts.optflag("m", "manhattan", "Select the Manhattan heuristic");
+	opts.optflag("e", "euclidian", "Select the Euclidian heuristic");
+	opts.optflag("H", "Hamming", "Select the Hamming heuristic");
 	opts.optopt(
 		"s",
 		"size",
@@ -45,6 +51,12 @@ fn main() {
 	};
 	if matches.opt_present("S") {
 		silent = true;
+	}
+	if matches.opt_present("e") {
+		heuristic = Box::new(heuristic::Euclidian::heuristic) as Heuristic;
+	}
+	if matches.opt_present("H") {
+		heuristic = Box::new(heuristic::Hamming::heuristic) as Heuristic;
 	}
 	if matches.opt_present("i") {
 		algo = Box::new(algo::IDAstar::solve) as Algo;
@@ -71,6 +83,6 @@ fn main() {
 		random = true;
 	}
 
-	let mut puzzle = Puzzle::new(file_path, random, size, silent, algo);
+	let mut puzzle = Puzzle::new(file_path, random, size, silent, algo, heuristic);
 	puzzle.solve();
 }

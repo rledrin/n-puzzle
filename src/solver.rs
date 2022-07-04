@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, hash::Hash};
 
 use rand::prelude::SliceRandom;
 
-use crate::algo::Algo;
+use crate::{algo::Algo, heuristic::Heuristic};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Vec2 {
@@ -20,6 +20,7 @@ pub struct Puzzle {
 	pub initial_state: Vec<u32>,
 	pub silent: bool,
 	pub algo: Algo,
+	pub heuristic: Heuristic,
 }
 
 impl Puzzle {
@@ -29,6 +30,7 @@ impl Puzzle {
 		size: u32,
 		silent: bool,
 		algo: Algo,
+		heuristic: Heuristic,
 	) -> Puzzle {
 		let mut initial_blank = Vec2 { x: 0, y: 0 };
 
@@ -36,24 +38,43 @@ impl Puzzle {
 
 		let mut initial_state = Vec::with_capacity((initial_size.0 * initial_size.0) as usize);
 		if let Some(path) = file_path {
-			//TODO: improve parsing
-			let input = fs::read_to_string(path).expect("Unable to read the puzzle file");
+			let input = match fs::read_to_string(path) {
+				Ok(input) => input,
+				Err(e) => {
+					eprintln!("Unable to read the puzzle file: {:#?}", e.kind());
+					std::process::exit(e.raw_os_error().unwrap_or(1));
+				}
+			};
+
 			let lines = input.lines();
 
 			for l in lines {
-				for number in l.split_whitespace() {
-					println!("number: {}", number);
-					println!("number.contains('#'): {}\n", number.contains('#'));
-					if number.contains('#') {
+				for s in l.split_whitespace() {
+					if s.contains('#') {
 						break;
 					}
 
+					let number = s.parse::<u32>().unwrap_or_else(|_| {
+						eprintln!("Unable to parse '{}' in the puzzle file ", s);
+						std::process::exit(1);
+					});
+
 					if !initial_size.1 {
-						initial_size.0 = number.parse::<u32>().unwrap();
+						initial_size.0 = number;
 						initial_size.1 = true;
+						if initial_size.0 < 3 {
+							eprintln!(
+								"The puzzle size must be 3 or greater but is {}",
+								initial_size.0
+							);
+							std::process::exit(1);
+						}
 						continue;
 					}
-					let number = number.parse::<u32>().unwrap();
+					if initial_state.contains(&number) {
+						eprintln!("Duplicate number '{}' in the puzzle file", number);
+						std::process::exit(1);
+					}
 					if number == 0 {
 						initial_blank = Vec2 {
 							x: initial_state.len() as u32 % initial_size.0,
@@ -62,6 +83,28 @@ impl Puzzle {
 					}
 					initial_state.push(number);
 				}
+			}
+			if initial_state.len() != (initial_size.0 * initial_size.0) as usize {
+				eprintln!(
+					"The puzzle file has {} numbers, but the puzzle is {}x{}({} numbers)",
+					initial_state.len(),
+					initial_size.0,
+					initial_size.0,
+					initial_size.0 * initial_size.0
+				);
+				std::process::exit(1);
+			}
+			if initial_state
+				.iter()
+				.any(|&x| x >= initial_size.0 * initial_size.0)
+			{
+				eprintln!(
+					"The puzzle file contains numbers greater than {} but the size is {}x{}",
+					initial_size.0 * initial_size.0 - 1,
+					initial_size.0,
+					initial_size.0,
+				);
+				std::process::exit(1);
 			}
 			if !Puzzle::sovable(&initial_state, initial_size.0, initial_blank) {
 				println!("This is not solvable");
@@ -81,6 +124,7 @@ impl Puzzle {
 			initial_state,
 			silent,
 			algo,
+			heuristic,
 		}
 	}
 
@@ -94,7 +138,6 @@ impl Puzzle {
 		println!();
 		let algo: Algo = unsafe { std::mem::transmute_copy(&self.algo) };
 		algo(self);
-		drop(algo);
 	}
 
 	pub fn print_state(&self, v: &[u32]) {
@@ -111,9 +154,8 @@ impl Puzzle {
 	}
 
 	pub fn calculate_heuristic(&self, state: &[u32]) -> u32 {
-		// TODO: add other heuristics functions
-
-		self.manhatan_distance(state).to_bits()
+		let heuristic: Heuristic = unsafe { std::mem::transmute_copy(&self.heuristic) };
+		heuristic(self, state).to_bits()
 	}
 
 	fn sovable(state: &[u32], size: u32, blank: Vec2) -> bool {
@@ -146,44 +188,6 @@ impl Puzzle {
 
 		swap_mod == blank_mod
 	}
-
-	fn manhatan_distance(&self, state: &[u32]) -> f32 {
-		let mut distance = 0.0;
-		for i in 0..self.size {
-			for j in 0..self.size {
-				if state[(i * self.size + j) as usize] != 0 {
-					let coord = self
-						.coords
-						.get(&state[(i * self.size + j) as usize])
-						.unwrap();
-					let x = coord.x as f32;
-					let y = coord.y as f32;
-					distance += (x - j as f32).abs() + (y - i as f32).abs();
-				}
-			}
-		}
-		distance
-	}
-
-	fn _euclidian_distance(&self, state: &[u32]) -> f32 {
-		let mut distance = 0.0;
-		for i in 0..self.size {
-			for j in 0..self.size {
-				if state[(i * self.size + j) as usize] != 0 {
-					let coord = self
-						.coords
-						.get(&state[(i * self.size + j) as usize])
-						.unwrap();
-					let x = coord.x as f32;
-					let y = coord.y as f32;
-					distance += (x - j as f32).powi(2) + (y - i as f32).powi(2);
-				}
-			}
-		}
-		distance.sqrt()
-	}
-
-	// fn misplaced_tiles(&self, state: &[u32]) -> f32 {}
 
 	fn init_coordinates(size: u32) -> HashMap<u32, Vec2> {
 		let mut coords = HashMap::new();

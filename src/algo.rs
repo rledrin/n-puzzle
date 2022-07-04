@@ -113,6 +113,7 @@ impl IDAstar {
 		});
 		let mut bound = f32::from_bits(node.h);
 		let mut path = vec![node];
+		path.reserve(100);
 		loop {
 			let t = IDAstar::search(puzzle, &mut path, 0.0, bound);
 			match t {
