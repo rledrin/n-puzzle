@@ -1,16 +1,15 @@
 use std::rc::Rc;
 
-use crate::solver::{Node, Puzzle};
+use crate::{node::Node, solver::Puzzle};
 
-pub trait Algo {
-	fn solve(puzzle: &mut Puzzle);
-}
+pub type Algo = Box<dyn Fn(&mut Puzzle)>;
 
 pub struct Astar {}
+
 pub struct IDAstar {}
 
-impl Algo for Astar {
-	fn solve(puzzle: &mut Puzzle) {
+impl Astar {
+	pub fn solve(puzzle: &mut Puzzle) {
 		let mut node = Rc::new(Node {
 			father: None,
 			state: puzzle.initial_state.clone(),
@@ -81,6 +80,6 @@ impl Algo for Astar {
 	}
 }
 
-impl Algo for IDAstar {
-	fn solve(_puzzle: &mut Puzzle) {}
+impl IDAstar {
+	pub fn solve(puzzle: &mut Puzzle) {}
 }

@@ -1,9 +1,11 @@
 use std::env;
 
+use algo::Algo;
 use getopts::Options;
 use solver::Puzzle;
 
 mod algo;
+mod node;
 mod solver;
 
 fn print_usage(program: &str, opts: Options) {
@@ -19,7 +21,7 @@ fn main() {
 	let mut size = 3;
 	let mut silent = false;
 	let mut random = false;
-	let mut algo;
+	let mut algo = Box::new(algo::Astar::solve) as Algo;
 
 	let mut opts = Options::new();
 	opts.optopt("f", "file", "Path to a puzzle file", "<PATH>");
@@ -30,7 +32,7 @@ fn main() {
 		"Size of the randomly generated puzzle, default: 3",
 		"<SIZE>",
 	);
-	opts.optflag("ida", "", "Use IDA* algorithm");
+	opts.optflag("i", "ida", "Use IDA* algorithm");
 	opts.optflag("S", "silent", "Don't print the solution");
 	opts.optflag("h", "help", "Print help information");
 	let matches = match opts.parse(&args[1..]) {
@@ -44,10 +46,8 @@ fn main() {
 	if matches.opt_present("S") {
 		silent = true;
 	}
-	if matches.opt_present("ida") {
-		algo = algo::Algo::idastar_solve;
-	} else {
-		algo = algo::Algo::astar_solve;
+	if matches.opt_present("i") {
+		algo = Box::new(algo::IDAstar::solve) as Algo;
 	}
 	if matches.opt_present("s") {
 		size = matches.opt_str("s").unwrap().parse::<u32>().unwrap();
@@ -70,12 +70,6 @@ fn main() {
 		eprintln!("Must use either random or file, using random by default");
 		random = true;
 	}
-	// let _ = if !matches.free.is_empty() {
-	// 	matches.free[0].clone()
-	// } else {
-	// 	print_usage(&program, opts);
-	// 	return;
-	// };
 
 	let mut puzzle = Puzzle::new(file_path, random, size, silent, algo);
 	puzzle.solve();
