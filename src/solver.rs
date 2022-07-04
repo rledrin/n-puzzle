@@ -1,14 +1,8 @@
-use std::{
-	collections::{BinaryHeap, HashMap, HashSet},
-	fs,
-	hash::Hash,
-	ops::Deref,
-	rc::Rc,
-};
+use std::{collections::HashMap, fs, hash::Hash};
 
 use rand::prelude::SliceRandom;
 
-use crate::{algo::Algo, node::Node};
+use crate::algo::Algo;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Vec2 {
@@ -17,8 +11,6 @@ pub struct Vec2 {
 }
 
 pub struct Puzzle {
-	pub open: BinaryHeap<Rc<Node>>,
-	pub close: HashSet<Rc<Node>>,
 	pub start_time: std::time::Instant,
 	pub total_open: u64,
 	pub current_open: u64,
@@ -80,8 +72,6 @@ impl Puzzle {
 			initial_size.0 = size;
 		}
 		Puzzle {
-			open: BinaryHeap::new(),
-			close: HashSet::new(),
 			start_time: std::time::Instant::now(),
 			total_open: 1,
 			current_open: 1,
@@ -95,58 +85,29 @@ impl Puzzle {
 	}
 
 	pub fn solve(&mut self) {
+		println!(
+			"Initial heuristic: {}",
+			f32::from_bits(self.calculate_heuristic(&self.initial_state))
+		);
+		println!("Initial state: ");
+		self.print_state(&self.initial_state);
+		println!();
 		let algo: Algo = unsafe { std::mem::transmute_copy(&self.algo) };
 		algo(self);
 		drop(algo);
 	}
 
-	pub fn expand(&mut self, node: Rc<Node>) {
-		let new_nodes = self.neighbors(node.clone());
-		self.add_to_open(new_nodes);
-		self.close.insert(node);
-	}
-
-	fn add_to_open(&mut self, new_nodes: Vec<Rc<Node>>) {
-		for node in new_nodes {
-			if self.close.get(&node).is_none() {
-				self.open.push(node.clone());
-				self.total_open += 1;
-				self.current_open += 1;
+	pub fn print_state(&self, v: &[u32]) {
+		for i in 0..self.size {
+			for j in 0..self.size {
+				if v[(i * self.size + j) as usize] < 10 {
+					print!("{}  ", v[(i * self.size + j) as usize]);
+				} else {
+					print!("{} ", v[(i * self.size + j) as usize]);
+				}
 			}
+			println!();
 		}
-	}
-
-	fn neighbors(&mut self, node: Rc<Node>) -> Vec<Rc<Node>> {
-		let c = vec![(-1i32, 0i32), (1, 0), (0, -1), (0, 1)];
-
-		let mut new_nodes = Vec::new();
-		for (x, y) in c {
-			if (node.blank.x as i32) + x >= 0
-				&& (node.blank.x as i32) + x < self.size as i32
-				&& (node.blank.y as i32) + y >= 0
-				&& (node.blank.y as i32) + y < self.size as i32
-			{
-				let mut n = node.deref().clone();
-				n.blank.x = ((node.blank.x as i32) + x) as u32;
-				n.blank.y = ((node.blank.y as i32) + y) as u32;
-				n.state.swap(
-					(n.blank.y * self.size + n.blank.x) as usize,
-					(node.blank.y * self.size + node.blank.x) as usize,
-				);
-				n.father = Some(node.clone());
-
-				n.g = (f32::from_bits(node.g) + 1.0f32).to_bits();
-				n.h = self.calculate_heuristic(&n.state);
-				n.f = (f32::from_bits(n.g) + f32::from_bits(n.h)).to_bits();
-
-				new_nodes.push(Rc::new(n));
-			}
-		}
-		new_nodes
-	}
-
-	pub fn is_goal(&self, node: Rc<Node>) -> bool {
-		f32::from_bits(node.h).partial_cmp(&0.0).unwrap() == std::cmp::Ordering::Equal
 	}
 
 	pub fn calculate_heuristic(&self, state: &[u32]) -> u32 {
