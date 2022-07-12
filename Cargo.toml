@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 getopts = "0.2.21"
 rand = "0.8.5"
+spinners = "4.1.0"

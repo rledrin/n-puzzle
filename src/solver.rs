@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, hash::Hash};
 
 use rand::prelude::SliceRandom;
+use spinners::{Spinner, Spinners};
 
 use crate::{algo::Algo, heuristic::Heuristic};
 
@@ -136,8 +137,11 @@ impl Puzzle {
 		println!("Initial state: ");
 		self.print_state(&self.initial_state);
 		println!();
+
+		let mut sp = Spinner::new(Spinners::Dots12, "Solving...".to_owned());
 		let algo: Algo = unsafe { std::mem::transmute_copy(&self.algo) };
 		algo(self);
+		sp.stop();
 	}
 
 	pub fn print_state(&self, v: &[u32]) {
